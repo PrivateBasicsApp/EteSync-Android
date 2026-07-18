@@ -61,6 +61,12 @@ android {
 
 
     packagingOptions {
+        // Store native libraries uncompressed and page-aligned so the APK satisfies the
+        // 16 KB page-size requirement (Android 15+). Note: this only fixes APK-level
+        // alignment; each .so must also be linked with 16 KB-aligned LOAD segments.
+        jniLibs {
+            useLegacyPackaging = false
+        }
         resources {
             excludes += ['LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE.txt']
         }
@@ -127,6 +133,9 @@ dependencies {
     implementation "com.etesync:journalmanager:1.1.1"
     def etebaseVersion = '2.3.2'
     implementation "com.etebase:client:$etebaseVersion"
+    // conscrypt is pulled transitively by etebase at 2.5.0, whose native lib is not
+    // 16 KB-page aligned; force 2.5.3 whose prebuilt .so ships 16 KB-aligned LOAD segments.
+    implementation 'org.conscrypt:conscrypt-android:2.5.3'
 
     // ACRA kept at 5.7.0 in Phase 1: newer 5.x is built with Kotlin >= 1.9 and its
     // metadata would be rejected by the Kotlin 1.8.21 compiler. Bump in Phase 2 with Kotlin.
