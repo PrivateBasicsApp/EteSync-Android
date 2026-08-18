@@ -258,19 +258,20 @@ class SignupDoFragment : DialogFragment() {
             // Mark the etesync v1 account as wanting migration
             lifecycleScope.launch {
                 val response = withContext(Dispatchers.IO) {
-                    val httpClient = HttpClient.Builder(context, settings).setForeground(true).build().okHttpClient
-                    val remote = settings.uri!!.toHttpUrlOrNull()!!.newBuilder()
-                            .addPathSegments("etesync-v2/confirm-migration/")
-                            .build()
+                    HttpClient.Builder(context, settings).setForeground(true).build().use { httpClient ->
+                        val remote = settings.uri!!.toHttpUrlOrNull()!!.newBuilder()
+                                .addPathSegments("etesync-v2/confirm-migration/")
+                                .build()
 
-                    val body = RequestBody.create(null, byteArrayOf())
+                        val body = RequestBody.create(null, byteArrayOf())
 
-                    val request = Request.Builder()
-                            .post(body)
-                            .url(remote)
-                            .build()
+                        val request = Request.Builder()
+                                .post(body)
+                                .url(remote)
+                                .build()
 
-                    httpClient.newCall(request).execute()
+                        httpClient.okHttpClient.newCall(request).execute()
+                    }
                 }
                 if (context == null) {
                     dismissAllowingStateLoss()
