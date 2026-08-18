@@ -483,34 +483,35 @@ class AccountActivity : BaseActivity(), Toolbar.OnMenuItemClickListener, PopupMe
             }
 
             val etebaseLocalCache = EtebaseLocalCache.getInstance(context, account.name)
-            val httpClient = HttpClient.Builder(context).build().okHttpClient
-            val etebase = EtebaseLocalCache.getEtebase(context, httpClient, settings)
-            val colMgr = etebase.collectionManager
+            HttpClient.Builder(context).build().use { httpClient ->
+                val etebase = EtebaseLocalCache.getEtebase(context, httpClient.okHttpClient, settings)
+                val colMgr = etebase.collectionManager
 
-            info.carddav = AccountInfo.ServiceInfo()
-            info.carddav!!.refreshing = ContentResolver.isSyncActive(account, App.addressBooksAuthority)
-            info.carddav!!.infos = getCollections(etebaseLocalCache, colMgr, CollectionInfo.Type.ADDRESS_BOOK)
+                info.carddav = AccountInfo.ServiceInfo()
+                info.carddav!!.refreshing = ContentResolver.isSyncActive(account, App.addressBooksAuthority)
+                info.carddav!!.infos = getCollections(etebaseLocalCache, colMgr, CollectionInfo.Type.ADDRESS_BOOK)
 
-            val accountManager = AccountManager.get(context)
-            for (addrBookAccount in accountManager.getAccountsByType(App.addressBookAccountType)) {
-                val addressBook = LocalAddressBook(context, addrBookAccount, null)
-                try {
-                    if (account == addressBook.mainAccount)
-                        info.carddav!!.refreshing = info.carddav!!.refreshing or ContentResolver.isSyncActive(addrBookAccount, ContactsContract.AUTHORITY)
-                } catch (e: ContactsStorageException) {
+                val accountManager = AccountManager.get(context)
+                for (addrBookAccount in accountManager.getAccountsByType(App.addressBookAccountType)) {
+                    val addressBook = LocalAddressBook(context, addrBookAccount, null)
+                    try {
+                        if (account == addressBook.mainAccount)
+                            info.carddav!!.refreshing = info.carddav!!.refreshing or ContentResolver.isSyncActive(addrBookAccount, ContactsContract.AUTHORITY)
+                    } catch (e: ContactsStorageException) {
+                    }
+
                 }
 
-            }
+                info.caldav = AccountInfo.ServiceInfo()
+                info.caldav!!.refreshing = ContentResolver.isSyncActive(account, CalendarContract.AUTHORITY)
+                info.caldav!!.infos = getCollections(etebaseLocalCache, colMgr, CollectionInfo.Type.CALENDAR)
 
-            info.caldav = AccountInfo.ServiceInfo()
-            info.caldav!!.refreshing = ContentResolver.isSyncActive(account, CalendarContract.AUTHORITY)
-            info.caldav!!.infos = getCollections(etebaseLocalCache, colMgr, CollectionInfo.Type.CALENDAR)
-
-            info.taskdav = AccountInfo.ServiceInfo()
-            info.taskdav!!.refreshing = TASK_PROVIDERS.any {
-                ContentResolver.isSyncActive(account, it.authority)
+                info.taskdav = AccountInfo.ServiceInfo()
+                info.taskdav!!.refreshing = TASK_PROVIDERS.any {
+                    ContentResolver.isSyncActive(account, it.authority)
+                }
+                info.taskdav!!.infos = getCollections(etebaseLocalCache, colMgr, CollectionInfo.Type.TASKS)
             }
-            info.taskdav!!.infos = getCollections(etebaseLocalCache, colMgr, CollectionInfo.Type.TASKS)
 
             return info
         }
@@ -578,9 +579,10 @@ class AccountActivity : BaseActivity(), Toolbar.OnMenuItemClickListener, PopupMe
                     val principal = settings.uri?.toHttpUrlOrNull()
 
                     try {
-                        val httpClient = HttpClient.Builder(this@AccountActivity, null, authToken).build().okHttpClient
-                        val journalAuthenticator = JournalAuthenticator(httpClient, principal!!)
-                        journalAuthenticator.invalidateAuthToken(authToken)
+                        HttpClient.Builder(this@AccountActivity, null, authToken).build().use { httpClient ->
+                            val journalAuthenticator = JournalAuthenticator(httpClient.okHttpClient, principal!!)
+                            journalAuthenticator.invalidateAuthToken(authToken)
+                        }
                     } catch (e: Exceptions.HttpException) {
                         // Ignore failures for now
                         Logger.log.warning(e.toString())
@@ -589,9 +591,10 @@ class AccountActivity : BaseActivity(), Toolbar.OnMenuItemClickListener, PopupMe
                     EtebaseLocalCache.clearUserCache(this@AccountActivity, account.name)
 
                     try {
-                        val httpClient = HttpClient.Builder(this@AccountActivity).build()
-                        val etebase = EtebaseLocalCache.getEtebase(this@AccountActivity, httpClient.okHttpClient, settings)
-                        etebase.logout()
+                        HttpClient.Builder(this@AccountActivity).build().use { httpClient ->
+                            val etebase = EtebaseLocalCache.getEtebase(this@AccountActivity, httpClient.okHttpClient, settings)
+                            etebase.logout()
+                        }
                     } catch(e: EtebaseException) {
                         // Ignore failures for now
                         Logger.log.warning(e.toString())
