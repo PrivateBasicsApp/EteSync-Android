@@ -21,17 +21,22 @@ import com.etesync.syncadapter.log.Logger
 import com.etesync.syncadapter.model.CollectionInfo
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
+import java.io.Closeable
 import java.io.IOException
 import java.io.Serializable
 import java.net.URI
 import java.util.*
 
-class BaseConfigurationFinder(protected val context: Context, protected val credentials: LoginCredentials) {
-    protected var httpClient: OkHttpClient
+class BaseConfigurationFinder(protected val context: Context, protected val credentials: LoginCredentials) : Closeable {
+    /**
+     * Keep the [HttpClient] itself, not only its [OkHttpClient]: it owns a cert4android
+     * CustomCertManager whose ServiceConnection leaks unless it is closed. Callers must wrap
+     * the finder in `use { }`.
+     */
+    private val client: HttpClient = HttpClient.Builder(context).build()
+    protected var httpClient: OkHttpClient = client.okHttpClient
 
-    init {
-        httpClient = HttpClient.Builder(context).build().okHttpClient
-    }
+    override fun close() = client.close()
 
     private fun isServerEtebase(): Boolean {
         if (credentials.uri != null) {
@@ -59,9 +64,10 @@ class BaseConfigurationFinder(protected val context: Context, protected val cred
         try {
             authtoken = authenticator.getAuthToken(credentials.userName, credentials.password)
 
-            val authenticatedHttpClient = HttpClient.Builder(context, uri.host, authtoken!!).build().okHttpClient
-            val userInfoManager = UserInfoManager(authenticatedHttpClient, uri.toHttpUrlOrNull()!!)
-            userInfo = userInfoManager.fetch(credentials.userName)
+            HttpClient.Builder(context, uri.host, authtoken!!).build().use { authenticatedClient ->
+                val userInfoManager = UserInfoManager(authenticatedClient.okHttpClient, uri.toHttpUrlOrNull()!!)
+                userInfo = userInfoManager.fetch(credentials.userName)
+            }
         } catch (e: Exceptions.HttpException) {
             Logger.log.warning(e.localizedMessage)
             exception = e

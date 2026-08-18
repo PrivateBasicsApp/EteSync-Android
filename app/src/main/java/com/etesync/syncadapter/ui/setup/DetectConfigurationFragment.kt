@@ -53,7 +53,9 @@ class DetectConfigurationFragment : DialogFragment() {
     private fun findConfiguration(credentials: LoginCredentials) {
         lifecycleScope.launch {
             val data = withContext(Dispatchers.IO) {
-                BaseConfigurationFinder(requireContext(), credentials).findInitialConfiguration()
+                BaseConfigurationFinder(requireContext(), credentials).use {
+                    it.findInitialConfiguration()
+                }
             }
             onLoadFinished(data)
         }
