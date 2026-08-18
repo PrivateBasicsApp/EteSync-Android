@@ -102,30 +102,31 @@ class CreateCollectionFragment : DialogFragment(), LoaderManager.LoaderCallbacks
                 val settings = AccountSettings(context, account)
                 val principal = settings.uri?.toHttpUrlOrNull()
 
-                val httpClient = HttpClient.Builder(context, settings).build().okHttpClient
-                val journalManager = JournalManager(httpClient, principal!!)
-                var uid = info.uid
+                HttpClient.Builder(context, settings).build().use { httpClient ->
+                    val journalManager = JournalManager(httpClient.okHttpClient, principal!!)
+                    var uid = info.uid
 
-                if (uid == null) {
-                    uid = JournalManager.Journal.genUid()
-                    info.uid = uid
-                    val crypto = Crypto.CryptoManager(info.version, settings.password(), uid)
-                    val journal = JournalManager.Journal(crypto, info.toJson(), uid)
-                    journalManager.create(journal)
+                    if (uid == null) {
+                        uid = JournalManager.Journal.genUid()
+                        info.uid = uid
+                        val crypto = Crypto.CryptoManager(info.version, settings.password(), uid)
+                        val journal = JournalManager.Journal(crypto, info.toJson(), uid)
+                        journalManager.create(journal)
 
-                    val journalEntity = JournalEntity.fetchOrCreate(data, info)
-                    data.upsert(journalEntity)
-                } else {
-                    val crypto: Crypto.CryptoManager
-                    val journalEntity = JournalEntity.fetch(data, serviceEntity, uid)
-
-                    if (journalEntity.encryptedKey != null) {
-                        crypto = Crypto.CryptoManager(info.version, settings.keyPair!!, journalEntity.encryptedKey)
+                        val journalEntity = JournalEntity.fetchOrCreate(data, info)
+                        data.upsert(journalEntity)
                     } else {
-                        crypto = Crypto.CryptoManager(info.version, settings.password(), uid)
+                        val crypto: Crypto.CryptoManager
+                        val journalEntity = JournalEntity.fetch(data, serviceEntity, uid)
+
+                        if (journalEntity.encryptedKey != null) {
+                            crypto = Crypto.CryptoManager(info.version, settings.keyPair!!, journalEntity.encryptedKey)
+                        } else {
+                            crypto = Crypto.CryptoManager(info.version, settings.password(), uid)
+                        }
+                        val journal = JournalManager.Journal(crypto, info.toJson(), uid)
+                        journalManager.update(journal)
                     }
-                    val journal = JournalManager.Journal(crypto, info.toJson(), uid)
-                    journalManager.update(journal)
                 }
 
                 authority?.let { requestSync(it) }
