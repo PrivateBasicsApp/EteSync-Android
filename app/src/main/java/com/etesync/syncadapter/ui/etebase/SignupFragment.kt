@@ -216,27 +216,28 @@ class ConfigurationViewModel : ViewModel() {
     fun signup(context: Context, credentials: SignupCredentials) {
         asyncTask = viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
-                val httpClient = HttpClient.Builder(context).build().okHttpClient
-                val uri = credentials.uri ?: URI(Constants.etebaseServiceUrl)
-                var etebaseSession: String? = null
-                var exception: Throwable? = null
-                try {
-                    val client = Client.create(httpClient, uri.toString())
-                    val user = User(credentials.userName, credentials.email)
-                    val etebase = Account.signup(client, user, credentials.password)
-                    etebaseSession = etebase.save(null)
-                } catch (e: EtebaseException) {
-                    exception = e
-                }
+                HttpClient.Builder(context).build().use { httpClient ->
+                    val uri = credentials.uri ?: URI(Constants.etebaseServiceUrl)
+                    var etebaseSession: String? = null
+                    var exception: Throwable? = null
+                    try {
+                        val client = Client.create(httpClient.okHttpClient, uri.toString())
+                        val user = User(credentials.userName, credentials.email)
+                        val etebase = Account.signup(client, user, credentials.password)
+                        etebaseSession = etebase.save(null)
+                    } catch (e: EtebaseException) {
+                        exception = e
+                    }
 
-                BaseConfigurationFinder.Configuration(
-                        uri,
-                        credentials.userName,
-                        etebaseSession,
-                        null,
-                        null,
-                        exception
-                )
+                    BaseConfigurationFinder.Configuration(
+                            uri,
+                            credentials.userName,
+                            etebaseSession,
+                            null,
+                            null,
+                            exception
+                    )
+                }
             }
             account.value = result
         }
@@ -246,26 +247,27 @@ class ConfigurationViewModel : ViewModel() {
     fun login(context: Context, credentials: LoginCredentials) {
         asyncTask = viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
-                val httpClient = HttpClient.Builder(context).build().okHttpClient
-                val uri = credentials.uri ?: URI(Constants.etebaseServiceUrl)
-                var etebaseSession: String? = null
-                var exception: Throwable? = null
-                try {
-                    val client = Client.create(httpClient, uri.toString())
-                    val etebase = Account.login(client, credentials.userName, credentials.password)
-                    etebaseSession = etebase.save(null)
-                } catch (e: EtebaseException) {
-                    exception = e
-                }
+                HttpClient.Builder(context).build().use { httpClient ->
+                    val uri = credentials.uri ?: URI(Constants.etebaseServiceUrl)
+                    var etebaseSession: String? = null
+                    var exception: Throwable? = null
+                    try {
+                        val client = Client.create(httpClient.okHttpClient, uri.toString())
+                        val etebase = Account.login(client, credentials.userName, credentials.password)
+                        etebaseSession = etebase.save(null)
+                    } catch (e: EtebaseException) {
+                        exception = e
+                    }
 
-                BaseConfigurationFinder.Configuration(
-                        uri,
-                        credentials.userName,
-                        etebaseSession,
-                        null,
-                        null,
-                        exception
-                )
+                    BaseConfigurationFinder.Configuration(
+                            uri,
+                            credentials.userName,
+                            etebaseSession,
+                            null,
+                            null,
+                            exception
+                    )
+                }
             }
             account.value = result
         }

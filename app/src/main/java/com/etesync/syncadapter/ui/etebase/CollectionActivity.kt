@@ -90,23 +90,40 @@ class CollectionActivity() : BaseActivity() {
 class AccountViewModel : ViewModel() {
     private val holder = MutableLiveData<AccountHolder>()
 
+    /**
+     * The published [AccountHolder] keeps using this client for the lifetime of the screen, so it
+     * cannot be closed when [loadAccount] returns — that would unbind cert4android's
+     * CustomCertManager and make every later request fail certificate validation. It is owned here
+     * and released in [onCleared] instead.
+     */
+    private var httpClient: HttpClient? = null
+
     fun loadAccount(context: Context, account: Account) {
         viewModelScope.launch {
-            val accountHolder = withContext(Dispatchers.IO) {
+            val (client, accountHolder) = withContext(Dispatchers.IO) {
                 val settings = AccountSettings(context, account)
                 val etebaseLocalCache = EtebaseLocalCache.getInstance(context, account.name)
-                val httpClient = HttpClient.Builder(context).setForeground(true).build().okHttpClient
-                val etebase = EtebaseLocalCache.getEtebase(context, httpClient, settings)
+                val client = HttpClient.Builder(context).setForeground(true).build()
+                val etebase = EtebaseLocalCache.getEtebase(context, client.okHttpClient, settings)
                 val colMgr = etebase.collectionManager
-                AccountHolder(
+                Pair(client, AccountHolder(
                         account,
                         etebaseLocalCache,
                         etebase,
                         colMgr
-                )
+                ))
             }
+            // Touched on the main thread only, so reloading can't race with onCleared().
+            httpClient?.close()
+            httpClient = client
             holder.value = accountHolder
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        httpClient?.close()
+        httpClient = null
     }
 
     fun observe(owner: LifecycleOwner, observer: (AccountHolder) -> Unit) =

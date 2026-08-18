@@ -56,11 +56,12 @@ class CollectionMembersListFragment : ListFragment(), AdapterView.OnItemClickLis
             try {
                 val membersList = withContext(Dispatchers.IO) {
                     val settings = AccountSettings(requireContext(), account)
-                    val httpClient = HttpClient.Builder(context, settings).build().okHttpClient
-                    val journalsManager = JournalManager(httpClient, settings.uri?.toHttpUrlOrNull()!!)
+                    HttpClient.Builder(context, settings).build().use { httpClient ->
+                        val journalsManager = JournalManager(httpClient.okHttpClient, settings.uri?.toHttpUrlOrNull()!!)
 
-                    val journal = JournalManager.Journal.fakeWithUid(journalEntity.uid)
-                    journalsManager.listMembers(journal)
+                        val journal = JournalManager.Journal.fakeWithUid(journalEntity.uid)
+                        journalsManager.listMembers(journal)
+                    }
                 }
                 members = membersList
                 setListAdapterMembers(membersList)

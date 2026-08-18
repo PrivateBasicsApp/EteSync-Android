@@ -117,7 +117,9 @@ class LoginCredentialsChangeFragment : DialogFragment(), LoaderManager.LoaderCal
         }
 
         override fun loadInBackground(): Configuration? {
-            return BaseConfigurationFinder(context, credentials).findInitialConfiguration()
+            return BaseConfigurationFinder(context, credentials).use {
+                it.findInitialConfiguration()
+            }
         }
     }
 

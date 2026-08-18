@@ -50,24 +50,25 @@ class SetupUserInfoFragment : DialogFragment() {
     protected inner class SetupUserInfo : AsyncTask<Account, Int, SetupUserInfo.SetupUserInfoResult>() {
         override fun doInBackground(vararg accounts: Account): SetupUserInfo.SetupUserInfoResult {
             try {
-                val cryptoManager: Crypto.CryptoManager
-                val httpClient = HttpClient.Builder(context, settings).build().okHttpClient
+                val keyPair = HttpClient.Builder(context, settings).build().use { client ->
+                    val cryptoManager: Crypto.CryptoManager
 
-                val userInfoManager = UserInfoManager(httpClient, settings.uri?.toHttpUrlOrNull()!!)
-                var userInfo: UserInfoManager.UserInfo? = userInfoManager.fetch(account.name)
+                    val userInfoManager = UserInfoManager(client.okHttpClient, settings.uri?.toHttpUrlOrNull()!!)
+                    var userInfo: UserInfoManager.UserInfo? = userInfoManager.fetch(account.name)
 
-                if (userInfo == null) {
-                    Logger.log.info("Creating userInfo for " + account.name)
-                    cryptoManager = Crypto.CryptoManager(Constants.CURRENT_VERSION, settings.password(), "userInfo")
-                    userInfo = UserInfoManager.UserInfo.generate(cryptoManager, account.name)
-                    userInfoManager.create(userInfo)
-                } else {
-                    Logger.log.info("Fetched userInfo for " + account.name)
-                    cryptoManager = Crypto.CryptoManager(userInfo.version!!.toInt(), settings.password(), "userInfo")
-                    userInfo.verify(cryptoManager)
+                    if (userInfo == null) {
+                        Logger.log.info("Creating userInfo for " + account.name)
+                        cryptoManager = Crypto.CryptoManager(Constants.CURRENT_VERSION, settings.password(), "userInfo")
+                        userInfo = UserInfoManager.UserInfo.generate(cryptoManager, account.name)
+                        userInfoManager.create(userInfo)
+                    } else {
+                        Logger.log.info("Fetched userInfo for " + account.name)
+                        cryptoManager = Crypto.CryptoManager(userInfo.version!!.toInt(), settings.password(), "userInfo")
+                        userInfo.verify(cryptoManager)
+                    }
+
+                    Crypto.AsymmetricKeyPair(userInfo.getContent(cryptoManager)!!, userInfo.pubkey!!)
                 }
-
-                val keyPair = Crypto.AsymmetricKeyPair(userInfo.getContent(cryptoManager)!!, userInfo.pubkey!!)
 
                 return SetupUserInfoResult(keyPair, null)
             } catch (e: Exception) {

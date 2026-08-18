@@ -73,16 +73,16 @@ open class ChangeEncryptionPasswordActivity : BaseActivity() {
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val httpClient = HttpClient.Builder(this@ChangeEncryptionPasswordActivity).setForeground(true).build().okHttpClient
+                    HttpClient.Builder(this@ChangeEncryptionPasswordActivity).setForeground(true).build().use { httpClient ->
+                        Logger.log.info("Loging in with old password")
+                        val client = Client.create(httpClient.okHttpClient, settings.uri?.toString())
+                        val etebase = com.etebase.client.Account.login(client, account.name, old_password)
+                        Logger.log.info("Login successful")
 
-                    Logger.log.info("Loging in with old password")
-                    val client = Client.create(httpClient, settings.uri?.toString())
-                    val etebase = com.etebase.client.Account.login(client, account.name, old_password)
-                    Logger.log.info("Login successful")
+                        etebase.changePassword(new_password)
 
-                    etebase.changePassword(new_password)
-
-                    settings.etebaseSession = etebase.save(null)
+                        settings.etebaseSession = etebase.save(null)
+                    }
                 }
 
                 progress.dismiss()
@@ -104,66 +104,66 @@ open class ChangeEncryptionPasswordActivity : BaseActivity() {
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val httpClient = HttpClient.Builder(this@ChangeEncryptionPasswordActivity, settings).setForeground(false).build().okHttpClient
+                    HttpClient.Builder(this@ChangeEncryptionPasswordActivity, settings).setForeground(false).build().use { httpClient ->
+                        Logger.log.info("Started deriving old key")
+                        val old_key = Crypto.deriveKey(account.name, old_password)
+                        Logger.log.info("Finished deriving old key")
 
-                    Logger.log.info("Started deriving old key")
-                    val old_key = Crypto.deriveKey(account.name, old_password)
-                    Logger.log.info("Finished deriving old key")
+                        var cryptoManager: Crypto.CryptoManager
+                        val principal = settings.uri?.toHttpUrlOrNull()!!
 
-                    var cryptoManager: Crypto.CryptoManager
-                    val principal = settings.uri?.toHttpUrlOrNull()!!
+                        val userInfoManager = UserInfoManager(httpClient.okHttpClient, principal)
+                        val userInfo = userInfoManager.fetch(account.name)!!
+                        Logger.log.info("Fetched userInfo for " + account.name)
+                        cryptoManager = Crypto.CryptoManager(userInfo.version!!.toInt(), old_key, "userInfo")
+                        userInfo.verify(cryptoManager)
 
-                    val userInfoManager = UserInfoManager(httpClient, principal)
-                    val userInfo = userInfoManager.fetch(account.name)!!
-                    Logger.log.info("Fetched userInfo for " + account.name)
-                    cryptoManager = Crypto.CryptoManager(userInfo.version!!.toInt(), old_key, "userInfo")
-                    userInfo.verify(cryptoManager)
+                        Logger.log.info("Started deriving new key")
+                        val new_key = Crypto.deriveKey(account.name, new_password)
+                        Logger.log.info("Finished deriving new key")
 
-                    Logger.log.info("Started deriving new key")
-                    val new_key = Crypto.deriveKey(account.name, new_password)
-                    Logger.log.info("Finished deriving new key")
+                        val userInfoContent = userInfo.getContent(cryptoManager)!!
+                        cryptoManager = Crypto.CryptoManager(userInfo.version!!.toInt(), new_key, "userInfo")
+                        userInfo.setContent(cryptoManager, userInfoContent)
 
-                    val userInfoContent = userInfo.getContent(cryptoManager)!!
-                    cryptoManager = Crypto.CryptoManager(userInfo.version!!.toInt(), new_key, "userInfo")
-                    userInfo.setContent(cryptoManager, userInfoContent)
+                        Logger.log.info("Fetching journal list")
+                        val membersToAdd = LinkedList<Pair<JournalManager.Journal, ByteArray?>>()
+                        val journalManager = JournalManager(httpClient.okHttpClient, principal)
+                        val journals = journalManager.list()
+                        for (journal in journals) {
+                            if (journal.owner != account.name) {
+                                continue
+                            }
 
-                    Logger.log.info("Fetching journal list")
-                    val membersToAdd = LinkedList<Pair<JournalManager.Journal, ByteArray?>>()
-                    val journalManager = JournalManager(httpClient, principal)
-                    val journals = journalManager.list()
-                    for (journal in journals) {
-                        if (journal.owner != account.name) {
-                            continue
+                            if (journal.key != null) {
+                                // We don't need to handle those cases, as they are already encrypted using pubkey
+                                continue
+                            } else {
+                                cryptoManager = Crypto.CryptoManager(journal.version, old_key, journal.uid!!)
+                            }
+
+                            Logger.log.info("Converting journal ${journal.uid}")
+                            journal.verify(cryptoManager)
+
+                            membersToAdd.add(Pair(journal, cryptoManager.getEncryptedKey(settings.keyPair!!, userInfo.pubkey!!)))
                         }
 
-                        if (journal.key != null) {
-                            // We don't need to handle those cases, as they are already encrypted using pubkey
-                            continue
-                        } else {
-                            cryptoManager = Crypto.CryptoManager(journal.version, old_key, journal.uid!!)
+                        Logger.log.info("Finished converting account. Uploading changes")
+                        userInfoManager.update(userInfo)
+
+                        for ((journal, encryptedKey) in membersToAdd) {
+                            if (journal.owner != account.name) {
+                                continue
+                            }
+
+                            Logger.log.info("Uploading journal ${journal.uid}")
+                            val member = JournalManager.Member(account.name, encryptedKey!!)
+                            journalManager.addMember(journal, member)
                         }
 
-                        Logger.log.info("Converting journal ${journal.uid}")
-                        journal.verify(cryptoManager)
-
-                        membersToAdd.add(Pair(journal, cryptoManager.getEncryptedKey(settings.keyPair!!, userInfo.pubkey!!)))
+                        settings.password(new_key)
+                        Logger.log.info("Finished uploading changes. Encryption password changed successfully.")
                     }
-
-                    Logger.log.info("Finished converting account. Uploading changes")
-                    userInfoManager.update(userInfo)
-
-                    for ((journal, encryptedKey) in membersToAdd) {
-                        if (journal.owner != account.name) {
-                            continue
-                        }
-
-                        Logger.log.info("Uploading journal ${journal.uid}")
-                        val member = JournalManager.Member(account.name, encryptedKey!!)
-                        journalManager.addMember(journal, member)
-                    }
-
-                    settings.password(new_key)
-                    Logger.log.info("Finished uploading changes. Encryption password changed successfully.")
                 }
 
                 progress.dismiss()

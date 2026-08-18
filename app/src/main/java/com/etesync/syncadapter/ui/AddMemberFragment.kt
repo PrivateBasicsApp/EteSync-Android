@@ -61,12 +61,13 @@ class AddMemberFragment : DialogFragment() {
     private inner class MemberAdd : AsyncTask<Void, Void, MemberAdd.AddResult>() {
         override fun doInBackground(vararg voids: Void): AddResult {
             try {
-                val httpClient = HttpClient.Builder(ctx, settings).build().okHttpClient
-                val userInfoManager = UserInfoManager(httpClient, remote!!)
+                HttpClient.Builder(ctx, settings).build().use { httpClient ->
+                    val userInfoManager = UserInfoManager(httpClient.okHttpClient, remote!!)
 
-                val userInfo = userInfoManager.fetch(memberEmail)
-                        ?: throw Exception(getString(R.string.collection_members_error_user_not_found, memberEmail))
-                memberPubKey = userInfo.pubkey!!
+                    val userInfo = userInfoManager.fetch(memberEmail)
+                            ?: throw Exception(getString(R.string.collection_members_error_user_not_found, memberEmail))
+                    memberPubKey = userInfo.pubkey!!
+                }
                 return AddResult(null)
             } catch (e: Exception) {
                 return AddResult(e)
@@ -103,23 +104,24 @@ class AddMemberFragment : DialogFragment() {
         override fun doInBackground(vararg voids: Void): AddResultSecond {
             try {
                 val settings = settings!!
-                val httpClient = HttpClient.Builder(ctx!!, settings).build().okHttpClient
-                val journalsManager = JournalManager(httpClient, remote!!)
+                HttpClient.Builder(ctx!!, settings).build().use { httpClient ->
+                    val journalsManager = JournalManager(httpClient.okHttpClient, remote!!)
 
-                val data = (ctx!!.applicationContext as App).data
-                val journalEntity = JournalEntity.fetchOrCreate(data, info)
+                    val data = (ctx!!.applicationContext as App).data
+                    val journalEntity = JournalEntity.fetchOrCreate(data, info)
 
-                val crypto: Crypto.CryptoManager
-                if (journalEntity.encryptedKey != null) {
-                    crypto = Crypto.CryptoManager(info.version, settings.keyPair!!, journalEntity.encryptedKey)
-                } else {
-                    crypto = Crypto.CryptoManager(info.version, settings.password(), info.uid!!)
+                    val crypto: Crypto.CryptoManager
+                    if (journalEntity.encryptedKey != null) {
+                        crypto = Crypto.CryptoManager(info.version, settings.keyPair!!, journalEntity.encryptedKey)
+                    } else {
+                        crypto = Crypto.CryptoManager(info.version, settings.password(), info.uid!!)
+                    }
+                    val journal = JournalManager.Journal.fakeWithUid(info.uid!!)
+
+                    val encryptedKey = crypto.getEncryptedKey(settings.keyPair!!, memberPubKey)
+                    val member = JournalManager.Member(memberEmail, encryptedKey!!, readOnly)
+                    journalsManager.addMember(journal, member)
                 }
-                val journal = JournalManager.Journal.fakeWithUid(info.uid!!)
-
-                val encryptedKey = crypto.getEncryptedKey(settings.keyPair!!, memberPubKey)
-                val member = JournalManager.Member(memberEmail, encryptedKey!!, readOnly)
-                journalsManager.addMember(journal, member)
                 return AddResultSecond(null)
             } catch (e: Exception) {
                 return AddResultSecond(e)

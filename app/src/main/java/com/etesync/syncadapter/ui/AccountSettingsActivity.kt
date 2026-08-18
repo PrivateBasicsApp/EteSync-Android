@@ -101,9 +101,10 @@ class AccountSettingsFragment() : PreferenceFragmentCompat(), LoaderManager.Load
             lifecycleScope.launch {
                 try {
                     val url = withContext(Dispatchers.IO) {
-                        val httpClient = HttpClient.Builder(requireContext()).build()
-                        val etebase = EtebaseLocalCache.getEtebase(requireContext(), httpClient.okHttpClient, settings)
-                        etebase.fetchDashboardUrl()
+                        HttpClient.Builder(requireContext()).build().use { httpClient ->
+                            val etebase = EtebaseLocalCache.getEtebase(requireContext(), httpClient.okHttpClient, settings)
+                            etebase.fetchDashboardUrl()
+                        }
                     }
                     WebViewActivity.openUrl(requireActivity(), url.toUri())
                 } catch (e: EtebaseException) {
