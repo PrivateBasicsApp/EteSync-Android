@@ -5,15 +5,12 @@
 
 Secure, end-to-end encrypted, and privacy respecting sync for your contacts, calendars and tasks (Android client).
 
-[<img src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png"
-      alt="Get it on Google Play" 
-      height="80" />](https://play.google.com/store/apps/details?id=com.etesync.syncadapter)
-[<img src="https://www.etesync.com/static/img/fdroid-badge.fe865d4c8f63.png"
-      alt="Get it on F-Droid"
-      height="80" />](https://f-droid.org/app/com.etesync.syncadapter)
-
-![GitHub tag](https://img.shields.io/github/tag/etesync/android.svg)
-[![Chat with us](https://img.shields.io/badge/chat-IRC%20|%20Matrix%20|%20Web-blue.svg)](https://www.etebase.com/community-chat/)
+> [!NOTE]
+> **This is a maintenance fork of [etesync/android](https://github.com/etesync/android)**, which only sees sporadic activity (last commit February 2026).
+>
+> EteSync is one of the few open-source products that can encrypt both contacts and calendars E2E and sync them between devices. I use it myself, so I keep this fork going for **security fixes, bug fixes and dependency updates only**. New features are out of scope. Fixes are also [submitted upstream as pull requests](https://github.com/etesync/android/pulls?q=is%3Apr+author%3APrivateBasicsApp), where they are still pending. I'm not affiliated with the original authors. The matching server fork is [PrivateBasicsApp/EteSyncServer](https://github.com/PrivateBasicsApp/EteSyncServer).
+>
+> There are no prebuilt releases: to use this fork, build it from source (see [Building](#building)). The app keeps the same application ID as the official one but is signed with a different key, so Android won't install it over the Google Play or F-Droid version. Sync any pending changes, uninstall the official app, install your build and log in again: your data is restored from the server.
 
 # Overview
 
@@ -25,7 +22,7 @@ EteSync is licensed under the [GPLv3 License](LICENSE).
 
 EteSync uses `git-submodules`, so cloning the code requires slightly different commands.
 
-1. Clone the repo: `git clone --recurse-submodules https://github.com/etesync/android etesync-android`
+1. Clone the repo: `git clone --recurse-submodules https://github.com/PrivateBasicsApp/EteSync-Android etesync-android`
 2. Change to the directory `cd etesync-android`
 3. Open with Android studio or build with gradle:
   1. Android studio (easier): `android-studio .`
